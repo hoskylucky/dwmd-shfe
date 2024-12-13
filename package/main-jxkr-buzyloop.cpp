@@ -50,13 +50,11 @@ kill_hnd(int sig) {
     sem_post(&qsem);
 }
 
-// 认证码
-const char* auth_code = "Ebrgodc23MrsHM4w1621YvhYHUeE1SKGAvlWqPKLZSqtDcNj/dbofXzDK/aZEOcQNI99WA==";
 int
 main() {
 
     // 认证板卡
-    jxkr_md_status_t s = jxkr_md_api_authorize(auth_code);
+    jxkr_md_status_t s = jxkr_md_api_authorize("license.lic");
     if(s != JXKR_MD_OK) {
         printf("auth failed %d\n", s);
         return s;
@@ -136,7 +134,7 @@ main() {
 
     // 初始化板卡 如果是旁路，则不需要初始化板卡
     char cfg[] = "/opt/hq100/conf/md-config.ini";
-    s = jxkr_init_hq_board(cfg);
+    s = jxkr_init_hq_board(cfg, QM_MASTER);
     if(s != JXKR_MD_OK) {
         printf("auth failed %d\n", s);
         return s;

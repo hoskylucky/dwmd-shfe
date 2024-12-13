@@ -2,6 +2,8 @@
 
 output=$1
 
+upx -9 bin/key_gen
+
 cd export
 
 rm -fr include && mkdir include && cp -fr ../include/jxkr_mdapi.h ./include/

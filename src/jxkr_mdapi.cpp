@@ -122,7 +122,7 @@ jxkr_md_loop(int cpuid, int* isAlive) {
     pIsAlive = isAlive;
     int res = pthread_create(&apiThread, NULL, run, g_sm);
     if(res != 0) {
-        printf("pthread_create create failed %d\n", res);
+        spdlog::error("pthread_create create failed %d\n", res);
         return JXKR_MD_THREAD_ERROR;
     }
 
@@ -207,10 +207,13 @@ jxkr_md_api_authorize(const char* filename) {
 }
 
 int
-jxkr_init_hq_board(char* confName) {
+jxkr_init_hq_board(char* confName, quote_mode_t mode) {
     CHECK_AUTH()
-    int r = init_fpga(confName);
-    if(r != 0) return r + JXKR_MD_FPGA_ERROR;
+    if(mode == QM_MASTER) {
+        int r = init_fpga(confName);
+        if(r != 0) return r + JXKR_MD_FPGA_ERROR;
+        spdlog::info("board is running in master mode\n");
+    }
 
     g_sm = (sm_shared_t*)config_fpga_dma();
     if(g_sm == NULL) return JXKR_MD_SHARED_MEMORY_ERROR;
