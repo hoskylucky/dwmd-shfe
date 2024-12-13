@@ -1,0 +1,14 @@
+{
+    "version": 7,
+    "configurePresets": [
+        {
+            "name": "linux",
+            "binaryDir": "${sourceDir}/build",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "~/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "type": "FILEPATH"
+            }
+        }
+    ]
+}

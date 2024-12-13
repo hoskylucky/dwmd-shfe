@@ -1,0 +1,14 @@
+{
+    "version": 7,
+    "configurePresets": [
+        {
+            "name": "centos7",
+            "binaryDir": "${sourceDir}/build",
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "/var/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "type": "FILEPATH"
+            }
+        }
+    ]
+}

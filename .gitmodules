@@ -1,0 +1,3 @@
+[submodule "deps/licensecxx"]
+	path = deps/licensecxx
+	url = https://github.com/hoskylucky/licensecxx.git
