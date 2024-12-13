@@ -1,0 +1,7 @@
+{
+    "version": 7,
+    "include": [
+        "./presets/wsl2.json",
+        "./presets/centos7-docker.json"
+    ]
+}

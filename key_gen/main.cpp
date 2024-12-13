@@ -27,8 +27,8 @@ zbpqFIdjf6M5BLeWNQECQQChEMMmbZHZRXueSBKan1ET27wjIG8nX91SDCBrD7NY
 
 #include <cxxopts.hpp>
 
-auto main(int argc, char *argv[]) -> int
-{
+auto
+main(int argc, char* argv[]) -> int {
     cxxopts::Options options("key_gen", "A program to generate a license key");
 
     options.add_options()("o,output", "output file", cxxopts::value<std::string>())(
@@ -41,26 +41,22 @@ auto main(int argc, char *argv[]) -> int
 
     auto result = options.parse(argc, argv);
 
-    if (result.count("help"))
-    {
+    if(result.count("help")) {
         std::cout << options.help() << std::endl;
         return 0;
     }
 
-    if (!result.count("os"))
-    {
+    if(!result.count("os")) {
         std::cerr << "os hash is required" << std::endl;
         return 1;
     }
 
-    if (!result.count("hw"))
-    {
+    if(!result.count("hw")) {
         std::cerr << "hardware hash is required" << std::endl;
         return 1;
     }
 
-    if (!result.count("date"))
-    {
+    if(!result.count("date")) {
         std::cerr << "date is required" << std::endl;
         return 1;
     }
@@ -73,15 +69,13 @@ auto main(int argc, char *argv[]) -> int
     license.push_content("date", result["date"].as<std::string>());
 
     auto key =
-        lcxx::crypto::load_key(std::string{private_key}, lcxx::crypto::key_type::private_key);
+        lcxx::crypto::load_key(std::string { private_key }, lcxx::crypto::key_type::private_key);
     std::string json_output = lcxx::to_json(license, key).dump(4);
 
     std::string output_file = "license.json";
-    if (result.count("output"))
-        output_file = result["output"].as<std::string>();
+    if(result.count("output")) output_file = result["output"].as<std::string>();
     std::ofstream ofs(output_file);
-    if (!ofs)
-    {
+    if(!ofs) {
         std::cerr << "Failed to open output file: " << output_file << std::endl;
         return 1;
     }
