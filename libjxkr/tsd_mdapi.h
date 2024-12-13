@@ -90,7 +90,7 @@ void read_fpga_state(int32_t *state, monitor_union* monitor, char *msg, int32_t 
  * @return 0 on success not 0 for failed
  */
 int init_fpga(void * param);
-int ini_conf_test(char *conf_file);
+//int ini_conf_test(char *conf_file);
 
 
 #ifdef __cplusplus 

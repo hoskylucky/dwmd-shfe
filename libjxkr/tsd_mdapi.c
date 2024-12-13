@@ -25,8 +25,8 @@
 #define MDQP_TCP_CHECK_SUM_REG 0x30
 #define MDQP_TIMOUT_DOWN 0x38
 
-#define MIRP_ABASE_ADDR 0x300
-#define MIRP_BBASE_ADDR 0x380
+#define MIRP_ABASE_ADDR 0x200
+#define MIRP_BBASE_ADDR 0x240
 
 #define MIRP_CBASE_ADDR 0x400
 #define MIRP_DBASE_ADDR 0x480
@@ -34,7 +34,7 @@
 #define MIRP_TABBASE_ADDR 0x3c
 #define MIRP_TCDBASE_ADDR 0x48
 
-#define CONF_BOARD_MODEAB_REG 0x34
+#define CONF_BOARD_MODEAB_REG 0x2c
 
 #define VERSION_REG 0x0
 #define COMPILE_REG 0x4
@@ -63,19 +63,19 @@
 #define CERR_CRC_PKT 0x88c
 #define DERR_CRC_PKT 0x890
 
-#define INSTRUMENT_AB_FILTER_ADDR 0x500
+#define INSTRUMENT_AB_FILTER_ADDR 0x1000
 
-#define INSTRUMENTNO_COUNT 64
+#define INSTRUMENTNO_COUNT 4096
 #define COFIG_NODE_MAX 8
 
-#define PCIE_DMA_DST_ADDR_H 0x14
-#define PCIE_DMA_DST_ADDR_L 0x10
+#define PCIE_DMA_DST_ADDR_H 0x24
+#define PCIE_DMA_DST_ADDR_L 0x20
 
 #define FPGA_RESET_REG 0xC
 
 #define DEVICE_BAR0_USR "/dev/jxkrstbar0"
 #define DEVICE_BAR1_CNTRL "/dev/jxkrstbar1"
-#define MAP_BAR0_LEN 4096
+#define MAP_BAR0_LEN 0x10000
 #define MAP_BAR1_LEN 0x10000
 #define MAP_BAR1_ENABLE 0x1004
 #define MAP_BAR1_TXENABLE 0x10c0
@@ -121,30 +121,10 @@
 #define ERROR_INICONF_FILTER_ 0x5E1F
 #define ERROR_INICONF_FILTER_CROSS 0x5E20
 
-typedef struct __item_mdqp
-{
-	uint32_t addr;
-	uint16_t port;
-	uint16_t reserved1;
-	uint8_t porteEn_0;
-	uint8_t reserved2;
-	uint8_t porteEn_2;
-	uint8_t reserved3;
-
-} item_mdqp;
-
-typedef struct __cfg_mdqp
-{
-	uint32_t cfg_num;
-	item_mdqp cfgs[16];
-
-} cfg_mdqp;
-
 typedef struct __item_mirp
 {
 	uint32_t addr;
 	uint16_t port;
-	uint32_t topic;
 	uint8_t porteEn_0;
 	uint8_t porteEn_1;
 	uint8_t porteEn_2;
@@ -172,6 +152,7 @@ void check_dir_alive(char *path)
 	}
 }
 
+#define printf
 #define LOG_FILE_MAX_SIZE 2 * 1024 * 1024
 
 void log_info(const char *fmt, ...)
@@ -208,6 +189,30 @@ void log_info(const char *fmt, ...)
 	va_end(ap);
 	fclose(logfd);
 #endif
+}
+
+int get_local_tim_int(void)
+{
+	time_t tim;
+	int tim_date = 0;
+	struct tm *ptim = NULL;
+	unsigned int value = 0;
+	unsigned int hexvalue = 0;
+	time(&tim);
+	ptim = localtime(&tim);
+	value = (ptim->tm_year + 1900) / 100;
+	hexvalue = (value / 10) * 16 + (value % 10);
+	tim_date |= hexvalue << 24;
+	value = (ptim->tm_year + 1900) % 100;
+	hexvalue = (value / 10) * 16 + (value % 10);
+	tim_date |= hexvalue << 16;
+	value = ptim->tm_mon + 1;
+	hexvalue = (value / 10) * 16 + (value % 10);
+	tim_date |= hexvalue << 8;
+	value = ptim->tm_mday;
+	hexvalue = (value / 10) * 16 + (value % 10);
+	tim_date |= hexvalue;
+	return tim_date;
 }
 
 #if 0
@@ -262,7 +267,7 @@ static void write_le32(volatile unsigned char *dev, unsigned int addr, unsigned 
 {
 	*(volatile unsigned int *)(dev + addr) = data;
 	msync((void *)(dev + addr), 4, MS_SYNC | MS_INVALIDATE);
-	usleep(10000);
+	// usleep(10000);
 }
 
 static unsigned int read_le32(volatile unsigned char *dev, unsigned int addr)
@@ -298,181 +303,11 @@ void clear_bar_map(unsigned char *bar_addr, unsigned int addr, unsigned int int_
 	}
 }
 
-int32_t config_topic(unsigned char *bar_addr, unsigned int *topic_id, unsigned int topic_count)
-{
-	int i;
-	unsigned int topic = 0;
-	int ret;
-	unsigned int aoffset = 0;
-	unsigned int coffset = 0;
-	unsigned int cflag = 0;
-	unsigned int err_num = RET_SUCESS;
-	for (i = 0; i < topic_count; i++)
-	{
-		cflag = 0;
-		if (topic_id[i] == 1000)
-		{
-			topic = 0;
-		}
-		else if (topic_id[i] == 1001)
-		{
-			topic = 1;
-		}
-		else if (topic_id[i] == 5000)
-		{
-			topic = 2;
-		}
-		else if (topic_id[i] == 5001)
-		{
-			topic = 3;
-		}
-		else if (topic_id[i] == 2000)
-		{
-			topic = 4;
-		}
-		else if (topic_id[i] == 1101)
-		{
-			topic = 5;
-			cflag = 1;
-		}
-		else if (topic_id[i] == 5101)
-		{
-			topic = 3;
-			cflag = 1;
-		}
-		else
-		{
-			err_num = ERROR_CONF_TOPIC;
-			goto err;
-		}
-		if (cflag)
-		{
-			ret = reg_write(bar_addr, MIRP_TCDBASE_ADDR + coffset, topic);
-			if (ret != RET_SUCESS)
-			{
-				err_num = ret;
-				goto err;
-			}
-			log_info("Topci C Addr=0x%x--Value topic=0x%x", MIRP_TCDBASE_ADDR + coffset, topic);
-			coffset += 4;
-		}
-		else
-		{
-			ret = reg_write(bar_addr, MIRP_TABBASE_ADDR + aoffset, topic);
-			if (ret != RET_SUCESS)
-			{
-				err_num = ret;
-				goto err;
-			}
-			log_info("Topci Addr=0x%x--Value topic=0x%x", MIRP_TABBASE_ADDR + aoffset, topic);
-			aoffset += 4;
-		}
-	}
-err:
-	return err_num;
-}
-
-int32_t config_tcp(unsigned char *bar_addr, cfg_mdqp *pMdqp)
-{
-	unsigned int err_num = RET_SUCESS;
-	unsigned int cmdqp_post = 0, amdqp_post = 0;
-	unsigned int channel_num_offset = 0;
-	int ret;
-	int i;
-	if (NULL == pMdqp)
-	{
-		return ERROR_CONFIG_ARGS;
-	}
-	if (pMdqp->cfg_num > COFIG_NODE_MAX)
-	{
-		err_num = ERROR_CONFIG_MDPQA;
-		goto err;
-	}
-	clear_bar_map(bar_addr, MDQP_BASE_ADDR, 32);
-	// amdqp_post = pMdqp->cfg_num - 1;
-	for (i = 0; i < pMdqp->cfg_num; i++)
-	{
-		if (pMdqp->cfgs[i].porteEn_2)
-		{
-			channel_num_offset = 16 * (4 + cmdqp_post);
-			cmdqp_post++;
-		}
-		else
-		{
-			channel_num_offset = 16 * amdqp_post;
-			amdqp_post++;
-		}
-#if 0
-			ret = reg_write(bar_addr,MDQP_BASE_ADDR +	channel_num_offset,0xd);
-			if(ret != RET_SUCESS){
-				err_num=ret;
-			  goto err;
-			}
-
-			log_info("TCP ADDR=%x--tim=%x",MDQP_BASE_ADDR +	channel_num_offset,0xd);
-
-#endif
-		ret = reg_write(bar_addr, MDQP_BASE_ADDR + channel_num_offset + 4, pMdqp->cfgs[i].addr);
-		if (ret != RET_SUCESS)
-		{
-			err_num = ret;
-			goto err;
-		}
-		log_info("TCP ADDR=0x%x--IP=0x%x", MDQP_BASE_ADDR + channel_num_offset + 4, pMdqp->cfgs[i].addr);
-		ret = reg_write(bar_addr, MDQP_BASE_ADDR + channel_num_offset + 8, pMdqp->cfgs[i].port);
-		if (ret != RET_SUCESS)
-		{
-			err_num = ret;
-			goto err;
-		}
-		log_info("TCP ADDR=0x%x--PORT=0x%x", MDQP_BASE_ADDR + channel_num_offset + 8, pMdqp->cfgs[i].port);
-		ret = reg_write(bar_addr, MDQP_BASE_ADDR + channel_num_offset + 0xc, 1);
-		if (ret != RET_SUCESS)
-		{
-			err_num = ret;
-			goto err;
-		}
-		log_info("TCP ADDR=0x%x--Enable=%d", MDQP_BASE_ADDR + channel_num_offset + 0xc, 1);
-		if (pMdqp->cfgs[i].porteEn_2)
-		{
-			log_info("C TCP IP:%x,Port:%d,No:%d", pMdqp->cfgs[i].addr, pMdqp->cfgs[i].port, i);
-			// tsd_net_set_conf("C",pMdqp->cfgs[i].addr,pMdqp->cfgs[i].port,0);
-		}
-		else
-		{
-			log_info("A TCP IP:%x,Port:%d,No:%d Addr=%x", pMdqp->cfgs[i].addr, pMdqp->cfgs[i].port, i, MDQP_BASE_ADDR);
-			// tsd_net_set_conf("A",pMdqp->cfgs[i].addr,pMdqp->cfgs[i].port,0);
-		}
-	}
-
-	if (pMdqp->cfg_num)
-	{
-		ret = reg_write(bar_addr, MDQP_TCP_CHECK_SUM_REG, 1);
-		if (ret != RET_SUCESS)
-		{
-			err_num = ret;
-			goto err;
-		}
-		log_info("MDQP_TCP_CHECK_SUM_REG ADDR0x=%x,Value=%d", MDQP_TCP_CHECK_SUM_REG, 1);
-
-		ret = reg_write(bar_addr, MDQP_TIMOUT_DOWN, 0xd);
-		if (ret != RET_SUCESS)
-		{
-			err_num = ret;
-			goto err;
-		}
-		log_info("MDQP_TIMOUT_DOWN ADDR0x=%x,Value=%d", MDQP_TIMOUT_DOWN, 0xd);
-	}
-
-err:
-	return err_num;
-}
-
 int32_t config_udp(unsigned char *bar_addr, cfg_mirp *pMirp)
 {
 	int i = 0;
-	unsigned char anum = 0, bnum = 0, cnum = 0, dnum = 0;
-	unsigned int apost = 0xff, bpost = 0xff, cpost = 0xff, dpost = 0xff;
+	unsigned char anum = 0, bnum = 0;
+	unsigned int apost = 0xff, bpost = 0xff;
 	unsigned int err_num = RET_SUCESS;
 	int ret = 0;
 	unsigned int flag = 0;
@@ -481,10 +316,8 @@ int32_t config_udp(unsigned char *bar_addr, cfg_mirp *pMirp)
 	{
 		return ERROR_CONFIG_ARGS;
 	}
-	clear_bar_map(bar_addr, MIRP_ABASE_ADDR, 16);
-	clear_bar_map(bar_addr, MIRP_BBASE_ADDR, 16);
-	clear_bar_map(bar_addr, MIRP_CBASE_ADDR, 16);
-	clear_bar_map(bar_addr, MIRP_DBASE_ADDR, 16);
+	// clear_bar_map(bar_addr,MIRP_ABASE_ADDR,16);
+	// clear_bar_map(bar_addr,MIRP_BBASE_ADDR,16);
 	for (i = 0; i < pMirp->cfg_num; i++)
 	{
 		if (pMirp->cfgs[i].porteEn_0)
@@ -494,54 +327,7 @@ int32_t config_udp(unsigned char *bar_addr, cfg_mirp *pMirp)
 				err_num = ERROR_CONFIG_MIRPA;
 				goto err;
 			}
-			if ((pMirp->cfgs[i].topic == 1000) || (pMirp->cfgs[i].topic == 1001))
-			{
-				apost = 0;
-				if (flag & 0x1)
-				{
-					offset = apost * 16 + 8;
-					flag |= 0x2;
-				}
-				else
-				{
-					offset = apost * 16;
-					flag |= 0x1;
-				}
-			}
-			else if ((pMirp->cfgs[i].topic == 5000) || (pMirp->cfgs[i].topic == 5001))
-			{
-				apost = 1;
-				if (flag & 0x4)
-				{
-					offset = apost * 16 + 8;
-					flag |= 0x8;
-				}
-				else
-				{
-					offset = apost * 16;
-					flag |= 0x4;
-				}
-			}
-			else if (pMirp->cfgs[i].topic == 2000)
-			{
-				apost = 2;
-				if (flag & 0x10)
-				{
-					offset = apost * 16 + 8;
-					flag |= 0x20;
-				}
-				else
-				{
-					offset = apost * 16;
-					flag |= 0x10;
-				}
-			}
-			else
-			{
-				err_num = ERROR_CONF_TOPIC;
-				goto err;
-			}
-
+			offset = anum * 8;
 			ret = reg_write(bar_addr, MIRP_ABASE_ADDR + offset, pMirp->cfgs[i].addr);
 			if (ret != RET_SUCESS)
 			{
@@ -561,60 +347,12 @@ int32_t config_udp(unsigned char *bar_addr, cfg_mirp *pMirp)
 		}
 		if (pMirp->cfgs[i].porteEn_1)
 		{
-
 			if (bnum > COFIG_NODE_MAX)
 			{
 				err_num = ERROR_CONFIG_MIRPB;
 				goto err;
 			}
-
-			if ((pMirp->cfgs[i].topic == 1000) || (pMirp->cfgs[i].topic == 1001))
-			{
-				bpost = 0;
-				if (flag & 0x40)
-				{
-					offset = bpost * 16 + 8;
-					flag |= 0x80;
-				}
-				else
-				{
-					offset = bpost * 16;
-					flag |= 0x40;
-				}
-			}
-			else if ((pMirp->cfgs[i].topic == 5000) || (pMirp->cfgs[i].topic == 5001))
-			{
-				bpost = 1;
-				if (flag & 0x100)
-				{
-					offset = bpost * 16 + 8;
-					flag |= 0x200;
-				}
-				else
-				{
-					offset = bpost * 16;
-					flag |= 0x100;
-				}
-			}
-			else if (pMirp->cfgs[i].topic == 2000)
-			{
-				bpost = 2;
-				if (flag & 0x400)
-				{
-					offset = bpost * 16 + 8;
-					flag |= 0x800;
-				}
-				else
-				{
-					offset = bpost * 16;
-					flag |= 0x400;
-				}
-			}
-			else
-			{
-				err_num = ERROR_CONF_TOPIC;
-				goto err;
-			}
+			offset = bnum * 8;
 			ret = reg_write(bar_addr, MIRP_BBASE_ADDR + offset, pMirp->cfgs[i].addr);
 			if (ret != RET_SUCESS)
 			{
@@ -632,121 +370,6 @@ int32_t config_udp(unsigned char *bar_addr, cfg_mirp *pMirp)
 			// log_info("B UDP IP:%x,Port:%d,No:%d,Post=%d,ADDR=%x",,,,,MIRP_BBASE_ADDR);
 			// tsd_net_set_conf("B",pMirp->cfgs[i].addr,pMirp->cfgs[i].port,pMirp->cfgs[i].topic);
 			bnum++;
-		}
-		if (pMirp->cfgs[i].porteEn_2)
-		{
-
-			if (cnum > COFIG_NODE_MAX)
-			{
-				err_num = ERROR_CONFIG_MIRPC;
-				goto err;
-			}
-			if (pMirp->cfgs[i].topic == 5101)
-			{
-				cpost = 0;
-				if (flag & 0x1000)
-				{
-					offset = cpost * 16 + 8;
-					flag |= 0x2000;
-				}
-				else
-				{
-					offset = cpost * 16;
-					flag |= 0x1000;
-				}
-			}
-			else if (pMirp->cfgs[i].topic == 1101)
-			{
-				cpost = 1;
-				if (flag & 0x4000)
-				{
-					offset = cpost * 16 + 8;
-					flag |= 0x8000;
-				}
-				else
-				{
-					offset = cpost * 16;
-					flag |= 0x4000;
-				}
-			}
-			else
-			{
-				err_num = ERROR_CONF_TOPIC;
-				goto err;
-			}
-			ret = reg_write(bar_addr, MIRP_CBASE_ADDR + offset, pMirp->cfgs[i].addr);
-			if (ret != RET_SUCESS)
-			{
-				err_num = ret;
-				goto err;
-			}
-			log_info("C UDP IP:0x%x,No:%d,Post=%d,ADDR=0x%x", pMirp->cfgs[i].addr, cnum, cpost, MIRP_CBASE_ADDR + offset);
-			ret = reg_write(bar_addr, MIRP_CBASE_ADDR + offset + 4, pMirp->cfgs[i].port);
-			if (ret != RET_SUCESS)
-			{
-				err_num = ret;
-				goto err;
-			}
-			log_info("C UDP PORT:0x%x,No:%d,Post=%d,ADDR=0x%x", pMirp->cfgs[i].port, cnum, cpost, MIRP_CBASE_ADDR + offset + 4);
-			// tsd_net_set_conf("C",pMirp->cfgs[i].addr,pMirp->cfgs[i].port,pMirp->cfgs[i].topic);
-			cnum++;
-		}
-		if (pMirp->cfgs[i].porteEn_3)
-		{
-			if (dnum > COFIG_NODE_MAX)
-			{
-				err_num = ERROR_CONFIG_MIRPD;
-				goto err;
-			}
-			if (pMirp->cfgs[i].topic == 5101)
-			{
-				dpost = 0;
-				if (flag & 0x10000)
-				{
-					offset = dpost * 16 + 8;
-					flag |= 0x20000;
-				}
-				else
-				{
-					offset = dpost * 16;
-					flag |= 0x10000;
-				}
-			}
-			else if (pMirp->cfgs[i].topic == 1101)
-			{
-				dpost = 1;
-				if (flag & 0x40000)
-				{
-					offset = dpost * 16 + 8;
-					flag |= 0x80000;
-				}
-				else
-				{
-					offset = dpost * 16;
-					flag |= 0x40000;
-				}
-			}
-			else
-			{
-				err_num = ERROR_CONF_TOPIC;
-				goto err;
-			}
-			ret = reg_write(bar_addr, MIRP_DBASE_ADDR + offset, pMirp->cfgs[i].addr);
-			if (ret != RET_SUCESS)
-			{
-				err_num = ret;
-				goto err;
-			}
-			log_info("D UDP IP:0x%x,No:%d,Post=%d,ADDR=0x%x", pMirp->cfgs[i].addr, dnum, dpost, MIRP_DBASE_ADDR + offset);
-			ret = reg_write(bar_addr, MIRP_DBASE_ADDR + offset + 4, pMirp->cfgs[i].port);
-			if (ret != RET_SUCESS)
-			{
-				err_num = ret;
-				goto err;
-			}
-			log_info("D UDP PORT:0x%x,No:%d,Post=%d,ADDR=0x%x", pMirp->cfgs[i].port, dnum, dpost, MIRP_DBASE_ADDR + offset + 4);
-			// tsd_net_set_conf("D",pMirp->cfgs[i].addr,pMirp->cfgs[i].port,pMirp->cfgs[i].topic);
-			dnum++;
 		}
 	}
 err:
@@ -791,62 +414,25 @@ int id_tarInt(char *id)
 	return ((id_flag << 16) | id_num);
 }
 
-#define MODE_BIT_MASK 0xFFFFF100
+#define MODE_BIT_MASK 0xFFFFFFF8
 #define MODE_QH_FILTER_MASK 0x1
 
 int32_t config_work_mode(unsigned char *bar_addr, int mod)
 {
 	int ret = 0;
 	int err_num = RET_SUCESS;
+	printf("mod=%x\n", mod);
 	if (mod & MODE_BIT_MASK)
 	{
 		return ERROR_CONFIG_ARGS;
 	}
-	if (mod & MODE_QH_FILTER_MASK)
-	{
-		if ((mod & 0x3) != 0x3)
-		{
-			return ERROR_CONFIG_ARGS;
-		}
-	}
+	// if(mod & MODE_QH_FILTER_MASK){
+	//	if((mod & 0x3) != 0x3){
+	//		return ERROR_CONFIG_ARGS;
+	//	}
+	// }
 	write_le32(bar_addr, CONF_BOARD_MODEAB_REG, mod);
 	log_info("ADDR:%x--AB Mode:%x", CONF_BOARD_MODEAB_REG, mod);
-	return err_num;
-}
-
-int32_t config_instruments(unsigned char *bar_addr, char **ppInstruments, int nCount)
-{
-	int i;
-	int ret = 0;
-	int err_num = RET_SUCESS;
-	clear_bar_map(bar_addr, INSTRUMENT_AB_FILTER_ADDR, 64);
-	if (nCount == 0)
-		goto err;
-	if (NULL == ppInstruments)
-	{
-		err_num = ERROR_CONFIG_ARGS;
-		goto err;
-	}
-
-	if (nCount > INSTRUMENTNO_COUNT)
-	{
-		err_num = ERROR_CONFIG_ARGS;
-		goto err;
-	}
-	for (i = 0; i < nCount; i++)
-	{
-		// printf("%s\n",ppInstruments[i]);
-		ret = id_tarInt(ppInstruments[i]);
-		if (ret < 0)
-		{
-			err_num = ERROR_INSTRUMENT_STYLE;
-			goto err;
-		}
-		write_le32(bar_addr, INSTRUMENT_AB_FILTER_ADDR + i * 4, ret);
-		free(ppInstruments[i]);
-		log_info("Filler ID %d:%s:%x", i, ppInstruments[i], ret);
-	}
-err:
 	return err_num;
 }
 
@@ -1081,19 +667,40 @@ int mem_addr_vir2phy(unsigned long vir, unsigned long *phy)
 
 typedef struct __instruments_filter
 {
-	char *Instruments[64];
+	unsigned int filter_addr[64];
+	unsigned int filter_code[64];
 	unsigned int count;
 } cfg_instruments_filter;
 
 typedef struct __iniinf
 {
 	cfg_mirp Mirp;
-	cfg_mdqp Mdqp;
-	unsigned int topic_id[10];
-	unsigned int topic_count;
+	unsigned int HPortF;
 	cfg_instruments_filter filter;
 	unsigned int ab_work_mode;
 } iniinf;
+
+int32_t config_instruments(unsigned char *bar_addr, cfg_instruments_filter ppInstruments)
+{
+	int i;
+	// int ret=0;
+	int err_num = RET_SUCESS;
+	unsigned int nCount = ppInstruments.count;
+	if (nCount == 0)
+		goto err;
+	if (nCount > INSTRUMENTNO_COUNT)
+	{
+		err_num = ERROR_CONFIG_ARGS;
+		goto err;
+	}
+	for (i = 0; i < nCount; i++)
+	{
+		write_le32(bar_addr, INSTRUMENT_AB_FILTER_ADDR + ppInstruments.filter_addr[i] * 4, ppInstruments.filter_code[i]);
+		log_info("Filler ID %d:%x:%x", i, ppInstruments.filter_addr[i] * 4, ppInstruments.filter_code[i]);
+	}
+err:
+	return err_num;
+}
 
 int strotl_get_str(const char *in, int *out, int *count)
 {
@@ -1124,7 +731,6 @@ int strotl_get_str(const char *in, int *out, int *count)
 int strotl_get_ip_port(const char *in, unsigned int *ip, unsigned int *port)
 {
 	char *p;
-	// unsigned int data = 0;
 	p = strtok((char *)in, ":");
 	if (NULL == p)
 	{
@@ -1139,185 +745,273 @@ int strotl_get_ip_port(const char *in, unsigned int *ip, unsigned int *port)
 			break;
 		}
 		*port = atoi(p);
-		//  data = *port;
 	} while (1);
 	if (port == 0)
 		return -1;
 	return 0;
 }
-
+int code_get(const char *code)
+{
+	int i;
+	unsigned int val_tmp = 0;
+	if (strlen(code) != 4)
+		return -1;
+	for (i = 0; i < 4; i++)
+	{
+		if (code[i] < 0x30 || code[i] > 0x39)
+		{
+			return -1;
+		}
+	}
+	val_tmp = atoi(code);
+	return (val_tmp % 100);
+}
+int variety_get(const char *variety)
+{
+	int i = 0;
+	if (strlen(variety) == 2)
+	{
+		for (i = 0; i < 2; i++)
+		{
+			if (variety[i] < 0x41 || variety[i] > 0x5A)
+			{
+				return -1;
+			}
+		}
+		printf("variety data %x:%x\n", variety[0], variety[1]);
+		return (((variety[0] & 0x3f) << 6) | (variety[1] & 0x3f));
+	}
+	if (strlen(variety) == 1)
+	{
+		for (i = 0; i < 1; i++)
+		{
+			if (variety[i] < 0x41 || variety[i] > 0x5A)
+			{
+				return -1;
+			}
+		}
+		printf("variety data %x\n", variety[0]);
+		return ((variety[0] & 0x3f));
+	}
+	return -1;
+}
+int ini_decode_filter_list(const char *file, cfg_instruments_filter *filter)
+{
+	FILE *pfile = NULL;
+	char line_buf[1024] = {0};
+	char *pret = NULL;
+	int variety_len = 0;
+	unsigned int addr = 0;
+	unsigned int filter_val = 0;
+	unsigned int offset = 0;
+	int i = 0;
+	char variety_name[256] = {0};
+	char variety_date[256] = {0};
+	int name_post = 0, date_post = 0;
+	if (access(file, F_OK))
+	{
+		return ERROR_INICONF_LOAD;
+	}
+	pfile = fopen(file, "r");
+	if (NULL == pfile)
+	{
+		printf("file %s\n", file);
+		return ERROR_INICONF_LOAD;
+	}
+	for (;;)
+	{
+		pret = fgets(line_buf, sizeof(line_buf), pfile);
+		if (NULL == pret)
+			break;
+		// if((variety_len=strlen(line_buf)) > 6){
+		//	printf("line len%d:%s\n",variety_len,line_buf);
+		//	fclose(pfile);
+		//	return ERROR_INICONF_FILTER_FILE;
+		// }
+		variety_len = strlen(line_buf);
+		for (i = 0; i < variety_len; i++)
+		{
+			if (line_buf[i] >= 0x41 && line_buf[i] <= 0x5A)
+			{
+				variety_name[name_post] = line_buf[i];
+				name_post++;
+				continue;
+			}
+			if (line_buf[i] >= 0x30 && line_buf[i] <= 0x39)
+			{
+				variety_date[date_post] = line_buf[i];
+				date_post++;
+				continue;
+			}
+			if (line_buf[i] == '\n')
+				continue;
+			fclose(pfile);
+			return ERROR_INICONF_FILTER_FILE;
+		}
+		if (name_post > 2 || (date_post != 4))
+		{
+			printf("nameppost=%d-date_post=%d\n", name_post, date_post);
+			fclose(pfile);
+			return ERROR_INICONF_FILTER_FILE;
+		}
+		addr = variety_get(variety_name);
+		offset = atoi(variety_date) % 100;
+		filter_val = 0x1 << (offset - 1);
+		filter->filter_addr[filter->count] = addr;
+		filter->filter_code[filter->count] = filter_val;
+		filter->count++;
+		printf("addr=%x:val=%x,count=%d\n", addr, filter_val, filter->count);
+		memset(variety_name, 0, sizeof(variety_name));
+		memset(variety_date, 0, sizeof(variety_date));
+		memset(line_buf, 0, sizeof(line_buf));
+		name_post = 0;
+		date_post = 0;
+	}
+	fclose(pfile);
+	if (filter->count == 0)
+	{
+		return ERROR_INICONF_FILTER_FILE;
+	}
+	return 0;
+}
+int ini_decode_filter(const char *file, cfg_instruments_filter *filter)
+{
+	dictionary *ini;
+	const char *pstr = NULL;
+	char ini_key[256] = {0};
+	char variety_tmp[256] = {0};
+	int i = 0, j = 0;
+	int addr = 0, post = 0, code_filter = 0;
+	ini = iniparser_load(file);
+	if (ini == NULL)
+	{
+		return ERROR_INICONF_LOAD;
+	}
+	for (i = 1;; i++)
+	{
+		memset(ini_key, 0, sizeof(ini_key));
+		sprintf(ini_key, "variety:node%d", i);
+		printf("filter inikey=%s\n", ini_key);
+		pstr = iniparser_getstring(ini, ini_key, NULL);
+		if (pstr == NULL)
+			break;
+		strcpy(variety_tmp, pstr);
+		printf("variety len=%d\n", strlen(variety_tmp));
+		addr = variety_get(variety_tmp);
+		if (addr < 0)
+		{
+			return ERROR_INICONF_FILTER_FILE;
+		}
+		printf("variety=%s,addr=%x\n", pstr, addr);
+		code_filter = 0;
+		for (j = 1;; j++)
+		{
+			memset(ini_key, 0, sizeof(ini_key));
+			sprintf(ini_key, "%s:node%d", variety_tmp, j);
+			pstr = iniparser_getstring(ini, ini_key, NULL);
+			if (pstr == NULL)
+				break;
+			if ((post = code_get(pstr)) < 0)
+			{
+				return ERROR_INICONF_FILTER_FILE;
+			}
+			code_filter |= 0x1 << (post - 1);
+		}
+		if (j == 1)
+		{
+			code_filter = 0x7ff;
+			//	return ERROR_INICONF_FILTER_FILE;
+		}
+		printf("addr=%x,code=%x,count=%d\n", addr, code_filter, filter->count);
+		filter->filter_addr[filter->count] = addr;
+		filter->filter_code[filter->count] = code_filter;
+		filter->count++;
+	}
+	iniparser_freedict(ini);
+	return 0;
+}
 #define AB_PORT_ENABLE 0x3
 int ini_parse_get(char *file, iniinf *conf)
 {
 	dictionary *ini;
 	int ret;
-	int count = 0;
 	int topic[10] = {0};
 	const char *pstr;
 	unsigned int tmp = 0;
 	int i = 0, j = 0;
 	unsigned int ip = 0, port = 0;
 	int err_num = RET_SUCESS;
-	// unsigned int tcp_count = 0;
+	unsigned char ini_key[256] = {0};
+
 	ini = iniparser_load(file);
 	if (ini == NULL)
 	{
 		return ERROR_INICONF_LOAD;
 	}
-	pstr = iniparser_getstring(ini, "cfg:sh2ps", NULL);
-	if (pstr != NULL)
+	ret = iniparser_getint(ini, "cfg:AEnable", -1);
+	if (ret == 1)
 	{
-		strotl_get_str(pstr, topic, &ret);
-		count += ret;
+		conf->HPortF |= 0x1;
 	}
-	pstr = iniparser_getstring(ini, "cfg:ine2ps", NULL);
-	if (pstr != NULL)
+	ret = iniparser_getint(ini, "cfg:BEnable", -1);
+	if (ret == 1)
 	{
-		strotl_get_str(pstr, topic + count, &ret);
-		count += ret;
+		conf->HPortF |= 0x2;
 	}
-	pstr = iniparser_getstring(ini, "cfg:sh4ps", NULL);
-	if (pstr != NULL)
-	{
-		strotl_get_str(pstr, topic + count, &ret);
-		count += ret;
-	}
-
-	pstr = iniparser_getstring(ini, "cfg:ine4ps", NULL);
-	if (pstr != NULL)
-	{
-		strotl_get_str(pstr, topic + count, &ret);
-		count += ret;
-	}
-	if (count == 0)
+	if (conf->HPortF == 0)
 	{
 		err_num = ERROR_INICONF_INFO;
 		goto err;
 	}
-	for (i = 0; i < count; i++)
-	{
-		conf->topic_id[i] = topic[i];
-	}
-	conf->topic_count = count;
-#define DA_FLAG_MASK 0x3
-#define ZJ_FLAG_MASK 0xc
-#define ZJ4PS_FLAG_MASK 0xF0
-	char ini_key[128] = {0};
-	const char bit_name[8][50] = {"a1", "a2", "b1", "b2", "c1", "c2", "c3", "c4"};
-	int tcp_flag = 0;
-	for (i = 0; i < 8; i++)
-	{
-		memset(ini_key, 0, sizeof(ini_key));
-		sprintf(ini_key, "tcp:tcp_ip_%s", bit_name[i]);
-		pstr = iniparser_getstring(ini, ini_key, NULL);
-		if (pstr)
-		{
-			if (strotl_get_ip_port(pstr, &ip, &port) < 0)
-			{
-				err_num = ERROR_INICONF_TCP;
-				goto err;
-			}
-			tmp = conf->Mdqp.cfg_num;
-			conf->Mdqp.cfgs[tmp].addr = ip;
-			conf->Mdqp.cfgs[tmp].port = port;
-			if (strncmp(bit_name[i], "c", 1) == 0)
-			{
-				conf->Mdqp.cfgs[tmp].porteEn_2 = 1;
-				tcp_flag |= ZJ4PS_FLAG_MASK;
-			}
-			else
-			{
-				conf->Mdqp.cfgs[tmp].porteEn_0 = 1;
-				if (strncmp(bit_name[i], "a", 1) == 0)
-					tcp_flag |= DA_FLAG_MASK;
-				else if (strncmp(bit_name[i], "b", 1) == 0)
-					tcp_flag |= ZJ_FLAG_MASK;
-			}
-			conf->Mdqp.cfg_num++;
-			tcp_flag |= 1 << i;
-		}
-	}
-	if (conf->Mdqp.cfg_num == 0)
-	{
-		err_num = ERROR_INICONF_TCP;
-		goto err;
-	}
+	printf("HPortF=%x\n", conf->HPortF);
 
-	const char udp_name[8][20] = {"aa", "ab", "ba", "bb", "cc", "cd", "dc", "dd"};
-	unsigned int topic_flag = 0;
-	for (i = 0; i < count; i++)
+	for (i = 0; i < 2; i++)
 	{
-		topic_flag = 0;
+		if (!(conf->HPortF & (0x1 << i)))
+		{
+			continue;
+		}
+
 		for (j = 0; j < 8; j++)
 		{
-			if (udp_name[j][0] == 'a')
+			memset(ini_key, 0, sizeof(ini_key));
+			if (i == 0)
 			{
-				if (!(tcp_flag & DA_FLAG_MASK))
-					continue;
-			}
-			else if (udp_name[j][0] == 'b')
-			{
-				if (!(tcp_flag & ZJ_FLAG_MASK))
-					continue;
-			}
-			else if (udp_name[j][0] == 'c')
-			{
-				if (!(tcp_flag & ZJ4PS_FLAG_MASK))
-					continue;
-			}
-			else if (udp_name[j][0] == 'd')
-			{
-				if (!(tcp_flag & ZJ4PS_FLAG_MASK))
-					continue;
+				sprintf(ini_key, "AUDP:udp_ip_%d", j + 1);
 			}
 			else
 			{
-				continue;
+				sprintf(ini_key, "BUDP:udp_ip_%d", j + 1);
 			}
-			memset(ini_key, 0, sizeof(ini_key));
-			sprintf(ini_key, "%d:udp_ip_%s", topic[i], udp_name[j]);
+			printf("key=%s\n", ini_key);
 			pstr = iniparser_getstring(ini, ini_key, NULL);
 			if (pstr)
 			{
+				printf("%s,%s\n", ini_key, pstr);
 				if (strotl_get_ip_port(pstr, &ip, &port) < 0)
 				{
 					err_num = ERROR_INICONF_UDP;
 					goto err;
 				}
 				tmp = conf->Mirp.cfg_num;
-				if (udp_name[j][1] == 'a')
+				if (i == 0)
 				{
 					conf->Mirp.cfgs[tmp].porteEn_0 = 1;
 				}
-				else if (udp_name[j][1] == 'b')
+				else
 				{
 					conf->Mirp.cfgs[tmp].porteEn_1 = 1;
 				}
-				else if (udp_name[j][1] == 'c')
-				{
-					conf->Mirp.cfgs[tmp].porteEn_2 = 1;
-				}
-				else if (udp_name[j][1] == 'd')
-				{
-					conf->Mirp.cfgs[tmp].porteEn_3 = 1;
-				}
 				conf->Mirp.cfgs[tmp].addr = ip;
 				conf->Mirp.cfgs[tmp].port = port;
-				conf->Mirp.cfgs[tmp].topic = topic[i];
 				conf->Mirp.cfg_num++;
-				topic_flag = 1;
 			}
 			else
 			{
 				// err_num = ERROR_INICONF_TOPIC;
 				// goto err;
-				continue;
+				break;
 			}
-		}
-		if (!topic_flag)
-		{
-			err_num = ERROR_INICONF_UDP;
-			goto err;
 		}
 	}
 	ret = iniparser_getint(ini, "upload_mode:filter_en", -1);
@@ -1334,62 +1028,18 @@ int ini_parse_get(char *file, iniinf *conf)
 			err_num = ERROR_INICONF_FILTER_FILE;
 			goto err;
 		}
+		printf("filter file=%s\n", pstr);
 		if (access(pstr, F_OK))
 		{
 			err_num = ERROR_INICONF_FILTER_FILE;
 			goto err;
 		}
-		FILE *pfd;
-		char *pdata;
-		char rxbuf[512] = {0};
-		pfd = fopen(pstr, "r");
-		if (NULL == pfd)
+
+		ret = ini_decode_filter(pstr, &(conf->filter));
+		if (ret)
 		{
-			err_num = ERROR_INICONF_FILTER_FILE;
-			goto err;
-		}
-		for (;;)
-		{
-			if (conf->filter.count > 64)
-			{
-				fclose(pfd);
-				err_num = ERROR_INICONF_FILTER_CROSS;
-				goto err;
-			}
-			memset(rxbuf, 0, sizeof(rxbuf));
-			pdata = fgets(rxbuf, sizeof(rxbuf), pfd);
-			if (NULL == pdata)
-				break;
-			for (i = 0; i < strlen(rxbuf); i++)
-			{
-				if (rxbuf[i] >= 0x30 && rxbuf[i] <= 0x39)
-				{
-					continue;
-				}
-				if (rxbuf[i] >= 0x41 && rxbuf[i] <= 0x5A)
-				{
-					continue;
-				}
-				if (rxbuf[i] >= 0x61 && rxbuf[i] <= 0x7A)
-				{
-					continue;
-				}
-				rxbuf[i] = '\0';
-			}
-			char *p = calloc(0, 64);
-			if (NULL == p)
-			{
-				err_num = ERROR_CALLOC;
-				goto err;
-			}
-			strcpy(p, rxbuf);
-			conf->filter.Instruments[conf->filter.count] = p;
-			conf->filter.count++;
-		}
-		fclose(pfd);
-		if (0 == conf->filter.count)
-		{
-			err_num = ERROR_INICONF_FILTER_FILE;
+			//	if(ret=ini_decode_filter_list(pstr,&(conf->filter))){
+			err_num = ret;
 			goto err;
 		}
 		conf->ab_work_mode |= 0x1;
@@ -1405,74 +1055,10 @@ int ini_parse_get(char *file, iniinf *conf)
 	{
 		conf->ab_work_mode |= 0x4;
 	}
-
-	ret = iniparser_getint(ini, "upload_mode:class3_en", -1);
-	if (ret == 1)
-	{
-		conf->ab_work_mode |= 0x8;
-	}
-
-	ret = iniparser_getint(ini, "upload_mode:class4_en", -1);
-	if (ret == 1)
-	{
-		conf->ab_work_mode |= 0x10;
-	}
-
-	ret = iniparser_getint(ini, "upload_mode:class5_en", -1);
-	if (ret == 1)
-	{
-		conf->ab_work_mode |= 0x20;
-	}
-
-	ret = iniparser_getint(ini, "upload_mode:class6_en", -1);
-	if (ret == 1)
-	{
-		conf->ab_work_mode |= 0x40;
-	}
-
-	ret = iniparser_getint(ini, "upload_mode:class7_en", -1);
-	if (ret == 1)
-	{
-		conf->ab_work_mode |= 0x80;
-	}
-
 err:
 	iniparser_freedict(ini);
 	return err_num;
 }
-#if 1
-int ini_conf_test(char *conf_file)
-{
-	int ret;
-	iniinf conf = {0};
-	int i;
-	int count;
-	if ((ret = ini_parse_get(conf_file, &conf)) == RET_SUCESS)
-	{
-		count = conf.Mdqp.cfg_num;
-		for (i = 0; i < count; i++)
-		{
-			printf("addr=%x\n", conf.Mdqp.cfgs[i].addr);
-			printf("port=%d\n", conf.Mdqp.cfgs[i].port);
-		}
-
-		count = conf.Mirp.cfg_num;
-		for (i = 0; i < count; i++)
-		{
-			printf("addr=%x\n", conf.Mirp.cfgs[i].addr);
-			printf("port=%d\n", conf.Mirp.cfgs[i].port);
-			printf("topic=%d\n", conf.Mirp.cfgs[i].topic);
-		}
-		printf("mod=%x\n", conf.ab_work_mode);
-		count = conf.filter.count;
-		for (i = 0; i < count; i++)
-		{
-			printf("%s\n", conf.filter.Instruments[i]);
-		}
-	}
-	return ret;
-}
-#endif
 
 int init_fpga(void *param)
 {
@@ -1487,9 +1073,9 @@ int init_fpga(void *param)
 	unsigned char *bar0_addr;
 	unsigned char *bar1_addr;
 	int ret;
+	int base_tim = 0;
 	unsigned int flag = 0;
 	iniinf conf = {0};
-
 	memset(&conf, 0, sizeof(conf));
 	if ((ret = ini_parse_get(param, &conf)) != RET_SUCESS)
 		return ret;
@@ -1519,11 +1105,27 @@ int init_fpga(void *param)
 		return ERROR_MAP_USER;
 	}
 
-	write_le32(bar0_addr, FPGA_RESET_REG, 1);
-	log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d", FPGA_RESET_REG, 1);
-	usleep(10);
-	write_le32(bar0_addr, FPGA_RESET_REG, 0);
-	log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d", FPGA_RESET_REG, 0);
+	write_le32(bar0_addr, 0x1C, 0x7);
+	log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d", 0x1c, 0x7);
+	write_le32(bar0_addr, 0x1C, 0);
+	log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d", 0x1c, 0x0);
+	while (1)
+	{
+		if (read_le32(bar0_addr, FPGA_RESET_REG))
+			sleep(1);
+		else
+			break;
+	}
+
+	base_tim = get_local_tim_int();
+	write_le32(bar0_addr, 0x28, base_tim);
+	log_info("BASE TIM=%x--VALUE:%x", 0x28, base_tim);
+
+	// write_le32(bar0_addr,FPGA_RESET_REG,1);
+	// log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d",FPGA_RESET_REG,1);
+	// usleep(10);
+	// write_le32(bar0_addr,FPGA_RESET_REG,0);
+	// log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d",FPGA_RESET_REG,0);
 	// tsd_conf_file_unlink();
 	if (*(unsigned int *)(bar0_addr + PCIE_DMA_DST_ADDR_H) != (c2h_phy_addr >> 32))
 	{
@@ -1564,15 +1166,13 @@ int init_fpga(void *param)
 		close(fd);
 		return ERROR_MAP_USER;
 	}
-
-	if ((err_num = config_instruments(bar0_addr, conf.filter.Instruments, conf.filter.count)) != RET_SUCESS)
+	if ((err_num = config_instruments(bar0_addr, conf.filter)) != RET_SUCESS)
 	{
 		goto err;
 	}
-	if ((err_num = config_topic(bar0_addr, conf.topic_id, conf.topic_count)) != RET_SUCESS)
-	{
-		goto err;
-	}
+	// if((err_num=config_topic(bar0_addr,conf.topic_id,conf.topic_count))!= RET_SUCESS){
+	//	goto err;
+	// }
 	if ((err_num = config_work_mode(bar0_addr, conf.ab_work_mode)) != RET_SUCESS)
 	{
 		goto err;
@@ -1583,17 +1183,23 @@ int init_fpga(void *param)
 		goto err;
 	}
 
-	if ((err_num = config_tcp(bar0_addr, &conf.Mdqp)) != RET_SUCESS)
-	{
-		goto err;
-	}
+	// if((err_num=config_tcp(bar0_addr,&conf.Mdqp))!= RET_SUCESS){
+	//		goto err;
+	// }
 
-	write_le32(bar0_addr, 0x1C, 1);
-	log_info("ADDR 0x1c value 1");
-	write_le32(bar0_addr, 0x1C, 0);
-	log_info("ADDR 0x1c value 0");
+	// write_le32(bar0_addr,0x1C,1);
+	// log_info("ADDR 0x1c value 1");
+	// write_le32(bar0_addr,0x1C,0);
+	// log_info("ADDR 0x1c value 0");
 err:
 	munmap(bar0_addr, MAP_BAR0_LEN);
 	close(fd);
 	return err_num;
 }
+
+#if 0
+int main(int argc,char *argv[]){
+	init_fpga(argv[1]);
+	return 0;
+}
+#endif

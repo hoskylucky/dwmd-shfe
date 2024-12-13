@@ -21,20 +21,21 @@ typedef struct sm_header
     uint32_t content_length;
     double reserved2; // TODO:
     double reserved3; // TODO:
-} __attribute__((__packed__)) sm_header_t;
+}__attribute__((__packed__))sm_header_t;
 
 typedef struct ring_node
 {
     uint32_t seq_tag_f; // sequence, auto increase by one
     instrument_t snap;
     uint32_t seq_tag_b;
-} __attribute__((__packed__)) ring_node_t;
+}__attribute__((__packed__)) ring_node_t;
 
 typedef struct ring_buffer
 {
     ring_node_t node[MAX_INSTRUMENT_NUM];
-} __attribute__((__packed__)) ring_buffer_t;
+}__attribute__((__packed__))ring_buffer_t;
 
+// 
 typedef struct market_state
 {
     uint8_t state; // 0 not write 1 writed
@@ -42,14 +43,14 @@ typedef struct market_state
     uint16_t reserved2;
     uint32_t reserved3;   // used to save expected_seq for lib
     uint64_t reserved[3]; // TODO: may not necessary
-} __attribute__((__packed__)) market_state_t;
+}__attribute__((__packed__))market_state_t;
 
 typedef struct sm_shared
 {
     sm_header_t header;
     market_state_t state;
     ring_buffer_t ring_buffer;
-} __attribute__((__packed__)) sm_shared_t;
+}__attribute__((__packed__))sm_shared_t;
 
 #pragma pack(pop)
 
