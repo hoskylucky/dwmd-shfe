@@ -2,7 +2,7 @@
 
 output=$1
 
-upx -9 bin/key_gen
+~/upx -9 bin/key_gen
 
 cd export
 
