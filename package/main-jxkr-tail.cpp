@@ -132,10 +132,9 @@ main() {
 
     // 初始化板卡 如果是旁路，则不需要初始化板卡
     char cfg[] = "/opt/hq100/conf/md-config.ini";
-    s = jxkr_init_hq_board(cfg, QM_MASTER);
-    if(s != JXKR_MD_OK) {
+    if(jxkr_init_hq_board(cfg, QM_MASTER) != JXKR_MD_OK) {
         printf("auth failed %d\n", s);
-        return s;
+        return -1;
     }
 
     // 注册回调
