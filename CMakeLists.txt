@@ -23,7 +23,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(THREAD_PREFER_PTHREAD_FLAG ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wnon-virtual-dtor -Wpedantic -Werror -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wnon-virtual-dtor -Wpedantic -Werror -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers -Wno-unused-result")
 set(CMAKE_CXX_FLAGS_DEBUG "-ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
