@@ -270,7 +270,7 @@ align_pagesize(unsigned int len) {
 
 int
 reg_write(unsigned char* addr, unsigned int offset, unsigned int val) {
-    int retval = 0;
+    unsigned int retval = 0;
     write_le32(addr, offset, val);
     retval = read_le32(addr, offset);
     if(retval != val) return ERROR_CONF_WRITE_FAIL;
@@ -279,7 +279,7 @@ reg_write(unsigned char* addr, unsigned int offset, unsigned int val) {
 
 void
 clear_bar_map(unsigned char* bar_addr, unsigned int addr, unsigned int int_count) {
-    int i = 0;
+    unsigned int i = 0;
     for(i = 0; i < int_count; i++) {
         write_le32(bar_addr, addr + i * 4, 0);
         log_info("addr:0x%x--Value=%d\n", addr + i * 4, 0);
@@ -288,7 +288,7 @@ clear_bar_map(unsigned char* bar_addr, unsigned int addr, unsigned int int_count
 
 int32_t
 config_udp(unsigned char* bar_addr, cfg_mirp* pMirp) {
-    int i = 0;
+    unsigned int i = 0;
     unsigned char anum = 0, bnum = 0;
     unsigned int apost = 0xff, bpost = 0xff;
     unsigned int err_num = RET_SUCESS;
@@ -388,20 +388,14 @@ id_tarInt(char* id) {
     return ((id_flag << 16) | id_num);
 }
 
-#define MODE_BIT_MASK       0xFFFFFFF8
+#define MODE_BIT_MASK       0xFFFFFFF0
 #define MODE_QH_FILTER_MASK 0x1
 
 int32_t
 config_work_mode(unsigned char* bar_addr, int mod) {
     int ret = 0;
     int err_num = RET_SUCESS;
-    printf("mod=%x\n", mod);
     if(mod & MODE_BIT_MASK) return ERROR_CONFIG_ARGS;
-    // if(mod & MODE_QH_FILTER_MASK){
-    //	if((mod & 0x3) != 0x3){
-    //		return ERROR_CONFIG_ARGS;
-    //	}
-    // }
     write_le32(bar_addr, CONF_BOARD_MODEAB_REG, mod);
     log_info("ADDR:%x--AB Mode:%x", CONF_BOARD_MODEAB_REG, mod);
     return err_num;
@@ -633,7 +627,7 @@ typedef struct __iniinf {
 
 int32_t
 config_instruments(unsigned char* bar_addr, cfg_instruments_filter ppInstruments) {
-    int i;
+    unsigned int i;
     // int ret=0;
     int err_num = RET_SUCESS;
     unsigned int nCount = ppInstruments.count;
@@ -681,6 +675,7 @@ strotl_get_str(const char* in, int* out, int* count) {
 int
 strotl_get_ip_port(const char* in, unsigned int* ip, unsigned int* port) {
     char* p;
+    unsigned int data = 0;
     p = strtok((char*)in, ":");
     if(NULL == p) return -1;
     *ip = (unsigned int)ntohl(inet_addr(p));
@@ -688,6 +683,7 @@ strotl_get_ip_port(const char* in, unsigned int* ip, unsigned int* port) {
         p = strtok(NULL, ":");
         if(NULL == p) break;
         *port = atoi(p);
+        data = *port;
     } while(1);
     if(port == 0) return -1;
     return 0;
@@ -696,8 +692,8 @@ int
 code_get(const char* code) {
     int i;
     unsigned int val_tmp = 0;
-    if(strlen(code) != 4) return -1;
-    for(i = 0; i < 4; i++)
+    if(strlen(code) != 3) return -1;
+    for(i = 0; i < 3; i++)
         if(code[i] < 0x30 || code[i] > 0x39) return -1;
     val_tmp = atoi(code);
     return (val_tmp % 100);
@@ -842,9 +838,9 @@ ini_parse_get(char* file, iniinf* conf) {
     ini = iniparser_load(file);
     if(ini == NULL) return ERROR_INICONF_LOAD;
     ret = iniparser_getint(ini, "cfg:AEnable", -1);
-    if(ret == 1) conf->HPortF |= 0x1;
+    if(ret != -1) conf->HPortF |= 0x1;
     ret = iniparser_getint(ini, "cfg:BEnable", -1);
-    if(ret == 1) conf->HPortF |= 0x2;
+    if(ret != -1) conf->HPortF |= 0x2;
     if(conf->HPortF == 0) {
         err_num = ERROR_INICONF_INFO;
         goto err;
@@ -895,9 +891,7 @@ ini_parse_get(char* file, iniinf* conf) {
             err_num = ERROR_INICONF_FILTER_FILE;
             goto err;
         }
-
-        ret = ini_decode_filter(pstr, &(conf->filter));
-        if(ret) {
+        if(ret = ini_decode_filter(pstr, &(conf->filter))) {
             //	if(ret=ini_decode_filter_list(pstr,&(conf->filter))){
             err_num = ret;
             goto err;
@@ -909,6 +903,8 @@ ini_parse_get(char* file, iniinf* conf) {
 
     ret = iniparser_getint(ini, "upload_mode:class2_en", -1);
     if(ret == 1) conf->ab_work_mode |= 0x4;
+    ret = iniparser_getint(ini, "upload_mode:class3_en", -1);
+    if(ret == 1) conf->ab_work_mode |= 0x8;
 err:
     iniparser_freedict(ini);
     return err_num;
@@ -927,7 +923,6 @@ init_fpga(void* param) {
     unsigned char* bar0_addr;
     unsigned char* bar1_addr;
     int ret;
-    int base_tim = 0;
     unsigned int flag = 0;
     iniinf conf = { 0 };
     memset(&conf, 0, sizeof(conf));
@@ -952,24 +947,14 @@ init_fpga(void* param) {
         return ERROR_MAP_USER;
     }
 
-    write_le32(bar0_addr, 0x1C, 0x7);
-    log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d", 0x1c, 0x7);
+    write_le32(bar0_addr, 0x1C, 0x1);
+    log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d", 0x1c, 0x1);
     write_le32(bar0_addr, 0x1C, 0);
     log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d", 0x1c, 0x0);
     while(1)
         if(read_le32(bar0_addr, FPGA_RESET_REG)) sleep(1);
         else break;
 
-    base_tim = get_local_tim_int();
-    write_le32(bar0_addr, 0x28, base_tim);
-    log_info("BASE TIM=%x--VALUE:%x", 0x28, base_tim);
-
-    // write_le32(bar0_addr,FPGA_RESET_REG,1);
-    // log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d",FPGA_RESET_REG,1);
-    // usleep(10);
-    // write_le32(bar0_addr,FPGA_RESET_REG,0);
-    // log_info("FPGA_RESET_REG ADDR=%x--VALUE:%d",FPGA_RESET_REG,0);
-    // tsd_conf_file_unlink();
     if(*(unsigned int*)(bar0_addr + PCIE_DMA_DST_ADDR_H) != (c2h_phy_addr >> 32)) {
         write_le32(bar0_addr, PCIE_DMA_DST_ADDR_H, c2h_phy_addr >> 32);
         log_info("PCIE_DMA_DST_ADDR_H ADDR0x=%x--VALUE0x:%x",
@@ -980,49 +965,11 @@ init_fpga(void* param) {
         write_le32(bar0_addr, PCIE_DMA_DST_ADDR_L, c2h_phy_addr);
         log_info("PCIE_DMA_DST_ADDR_L ADDR0x=%x--VALUE0x:%x", PCIE_DMA_DST_ADDR_L, c2h_phy_addr);
     }
-    munmap(bar0_addr, MAP_BAR0_LEN);
-    close(fd);
-#if 0
-	fd=open(DEVICE_BAR1_CNTRL,O_RDWR);
-	if(fd < 0)
-		return ERROR_OPEN_USER;
-	bar1_addr = (unsigned char *)mmap(NULL,MAP_BAR1_LEN,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
-	if (bar1_addr == (unsigned char *)MAP_FAILED) {
-			close(fd);
-			return ERROR_MAP_BAR1;
-	}
-	if(*(unsigned int *)(bar1_addr+MAP_BAR1_TXENABLE) != 4){
-		write_le32(bar1_addr,MAP_BAR1_TXENABLE,4);
-	}
-	if(*(unsigned int *)(bar1_addr+MAP_BAR1_ENABLE) != 1){
-		write_le32(bar1_addr,MAP_BAR1_ENABLE,1);
-	}
-	munmap(bar1_addr,MAP_BAR1_LEN);
-	close(fd);
-#endif
-    fd = open(DEVICE_BAR0_USR, O_RDWR);
-    if(fd < 0) return ERROR_OPEN_USER;
-    bar0_addr = (unsigned char*)mmap(NULL, MAP_BAR0_LEN, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if(bar0_addr == (unsigned char*)MAP_FAILED) {
-        close(fd);
-        return ERROR_MAP_USER;
-    }
     if((err_num = config_instruments(bar0_addr, conf.filter)) != RET_SUCESS) goto err;
-    // if((err_num=config_topic(bar0_addr,conf.topic_id,conf.topic_count))!= RET_SUCESS){
-    //	goto err;
-    // }
     if((err_num = config_work_mode(bar0_addr, conf.ab_work_mode)) != RET_SUCESS) goto err;
 
     if((err_num = config_udp(bar0_addr, &conf.Mirp)) != RET_SUCESS) goto err;
 
-    // if((err_num=config_tcp(bar0_addr,&conf.Mdqp))!= RET_SUCESS){
-    //		goto err;
-    // }
-
-    // write_le32(bar0_addr,0x1C,1);
-    // log_info("ADDR 0x1c value 1");
-    // write_le32(bar0_addr,0x1C,0);
-    // log_info("ADDR 0x1c value 0");
 err:
     munmap(bar0_addr, MAP_BAR0_LEN);
     close(fd);
@@ -1035,3 +982,4 @@ int main(int argc,char *argv[]){
 	return 0;
 }
 #endif
+
