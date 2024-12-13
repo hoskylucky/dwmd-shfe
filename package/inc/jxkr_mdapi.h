@@ -29,11 +29,17 @@ extern "C"
         JXKR_MD_FPGA_ERROR = 100
     } jxkr_md_status_t;
 
+    typedef enum quote_mode
+    {
+        QM_MASTER,
+        QM_SLAVE
+    } quote_mode_t;
+
     /**
      * @brief init hq board
      *
      */
-    JXKR_MDAPI jxkr_md_status_t jxkr_init_hq_board(char *confName);
+    JXKR_MDAPI jxkr_md_status_t jxkr_init_hq_board(char *confName, quote_mode_t mode);
 
     JXKR_MDAPI instrument_t *jxkr_next();
     JXKR_MDAPI jxkr_md_status_t jxkr_prepare();

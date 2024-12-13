@@ -206,15 +206,16 @@ jxkr_md_status_t jxkr_md_api_authorize(const char *ticket)
     return JXKR_MD_OK;
 }
 
-jxkr_md_status_t jxkr_init_hq_board(char *confName)
+jxkr_md_status_t jxkr_init_hq_board(char *confName, quote_mode_t mode)
 {
     CHECK_AUTH()
-    int r = init_fpga(confName);
-    if (r != 0)
-        return r + JXKR_MD_FPGA_ERROR;
 
-    g_sm = (sm_shared_t *)config_fpga_dma();
-    if (g_sm == NULL)
-        return JXKR_MD_SHARED_MEMORY_ERROR;
+    if (mode == QM_MASTER)
+    {
+        int r = init_fpga(confName);
+        if (r != 0)
+            return r + JXKR_MD_FPGA_ERROR;
+        printf("board is running in master mode\n");
+    }
     return JXKR_MD_OK;
 }

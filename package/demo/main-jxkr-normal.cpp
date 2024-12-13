@@ -145,7 +145,7 @@ int main()
 
     // 初始化板卡
     char cfg[] = "/opt/hq100/conf/md-config.ini";
-    s = jxkr_init_hq_board(cfg);
+    s = jxkr_init_hq_board(cfg, QM_MASTER);
     if (s != JXKR_MD_OK)
     {
         printf("auth failed %d\n", s);
