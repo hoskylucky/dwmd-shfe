@@ -1,7 +1,7 @@
 #ifndef SHARED_MEM_H__
 #define SHARED_MEM_H__
 
-#include "instrument.h"
+#include "jxkr_mdapi.h"
 #include <stdint.h>
 
 #pragma pack(push, 8)

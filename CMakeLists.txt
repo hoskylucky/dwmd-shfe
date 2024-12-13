@@ -18,7 +18,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/version.h.in ${CMAKE_CURRENT_SOURCE_DIR}/include/version.h @ONLY)
 endif()
 
-project(dceapi VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
+project(shfeapi VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 set(CMAKE_CXX_STANDARD 20)
 set(THREAD_PREFER_PTHREAD_FLAG ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -55,3 +55,4 @@ find_package(Threads REQUIRED)
 
 add_subdirectory(deps/licensecxx)
 add_subdirectory(src)
+add_subdirectory(key_gen)

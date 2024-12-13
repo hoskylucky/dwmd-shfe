@@ -1,7 +1,7 @@
 #ifndef JXKR_MD_API_H__
 #define JXKR_MD_API_H__
 
-#include "instrument.h"
+#include <stdint.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -12,6 +12,26 @@ extern "C" {
 #else
     #define JXKR_MDAPI __attribute__((visibility("default")))
 #endif
+
+    typedef struct instrument {
+        char instrumentId[16];
+        uint32_t snapTime;  // sec num
+        uint16_t snapMillSec;
+        float lastPrice;
+        uint32_t volume;
+        uint32_t openInterest;
+        double turnover;
+
+        float bidPrice[5];
+        float askPrice[5];
+        uint32_t bidVol[5];
+        uint32_t askVol[5];
+
+        float low_price;
+        float high_price;
+        char reserved[22];
+
+    } __attribute__((__packed__)) instrument_t;
 
     typedef enum jxrk_md_status {
         JXKR_MD_OK = 0,
