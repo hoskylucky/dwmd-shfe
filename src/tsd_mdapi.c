@@ -932,7 +932,7 @@ init_fpga(void* param) {
     iniinf conf = { 0 };
     memset(&conf, 0, sizeof(conf));
     if((ret = ini_parse_get(param, &conf)) != RET_SUCESS) return ret;
-    fd = open(HUGE_PAGE_C2H_NODE, O_CREAT | O_RDWR);
+    fd = open(HUGE_PAGE_C2H_NODE, O_CREAT | O_RDWR, 600);
     if(fd < 0) return ERROR_OPEN_PAGE;
     c2h_addr = (unsigned char*)mmap(0, HUG_PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if(c2h_addr == MAP_FAILED) {
