@@ -20,9 +20,7 @@ typedef struct instrument
     uint32_t bidVol[5];
     uint32_t askVol[5];
 
-    float low_price;
-    float high_price;
-    char reserved[22];
+    char reserved[30];
 
 } __attribute__((__packed__)) instrument_t;
 
